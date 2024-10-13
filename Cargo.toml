@@ -1,0 +1,22 @@
+[package]
+name = "todui"
+version = "0.1.0"
+edition = "2021"
+description = "a todo tui"
+authors = ["Toby Reay", "Becca"]
+
+
+[[bin]]
+name = "todui"
+path = "src/bin.rs"
+
+[dependencies]
+chrono = { version = "0.4.38", features = ["serde"] }
+clap = { version = "4.5.20", features = ["cargo", "derive"] }
+serde_json = "1.0.128"
+serde = { version = "1.0.210", features = ["derive"] }
+confy = "0.6.1"
+prettytable-rs = "0.10.0"
+colored = "2.1.0"
+tokio = { version = "1", features = ["full"] }
+tokio-macros = { version = "0.2.0-alpha.6" }
