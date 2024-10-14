@@ -9,6 +9,7 @@ use tokio::{fs::{File, OpenOptions}, io::{AsyncReadExt, AsyncSeekExt, AsyncWrite
 pub enum TodoErrors {
     TodoNotFound,
     TodoClosing,
+    OutOfBounds
 }
 
 impl Display for TodoErrors {
@@ -100,18 +101,37 @@ impl TodoList {
     }
 
 
-    pub fn add(&mut self, todo: Todo) -> TodoResult<()> {
+    pub async fn add(&mut self, todo: Todo) -> TodoResult<()> {
         self.list.push(todo);
+        self.write_to_file().await?;
         Ok(())
     }
 
-    pub fn remove(&self, id: usize) -> TodoResult<()> {
-
-        Ok(())
+    pub async fn remove(&mut self, id: usize) -> TodoResult<()> {
+        if 0 <= id && id <= self.list.len() {
+            self.list.remove(id);
+            self.write_to_file().await?;
+            Ok(())
+        }
+        else {
+            Err(TodoErrors::OutOfBounds)
+        }
     }
 
-    pub fn complete(&self) -> TodoResult<()> {
-        Ok(())
+    pub fn complete(&mut self, id: usize) -> TodoResult<()> {
+        if 0 <= id && id <= self.list.len() {
+            let todo = match self.list.get_mut(id) {
+                Some(todo) => todo,
+                None => return Err(TodoErrors::TodoNotFound)
+            };
+            todo.completed = true;
+
+            Ok(())
+
+        }
+        else {
+            Err(TodoErrors::OutOfBounds)
+        }
     }
 
     pub async fn write_to_file(&self) -> TodoResult<()> {
@@ -119,10 +139,12 @@ impl TodoList {
     }
 
     pub fn find_todo_id(&self, name: String) -> TodoResult<usize> {
-        for todo in self.list {
-            
+        for (index, todo )in self.list.iter().enumerate() {
+            if todo.name.trim() == name.trim() {
+                return Ok(index);
+            }
         }
-
+        Err(TodoErrors::TodoNotFound)
     }
 
 }
@@ -151,3 +173,56 @@ impl Todo {
     }
 }
 
+
+// pub async fn write_to_file(&mut self) {
+//     let data = serde_json::to_string_pretty(&self.todo_list)
+//         .unwrap();
+//     let mut file = OpenOptions::new()
+//         .write(true)
+//         .read(true)
+//         .truncate(true)
+//         .create(true)
+//         .open("./recources/todo.json")
+//         .await.unwrap();
+
+//     file.seek(SeekFrom::Start(0)).await.unwrap();
+
+//     file.write_all(data.as_bytes())
+//         .await
+//         .unwrap();
+
+// }
+
+
+// pub fn list(&self) {
+//     println!("Todos");
+
+//     let fmt_date = |x: DateTime<Local>| {
+//         format!("{}/{}/{}", x.day(), x.month(), x.year())
+//     };
+
+//     let mut table = Table::new();
+//     table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+//     table.set_titles(row!["Item", "Todo", "Description", "Completed", "Date", "Date Completed"]);
+//     for (index, data)  in self.todo_list.iter().enumerate() {
+//         let description = match &data.description {
+//             Some(s) => s.clone(),
+//             None => "None".to_string(),
+//         };
+//         let completed = if data.completed {
+//             "Yes".to_string()
+//         } else {
+//             "No".to_string()
+//         };
+
+//         let date_completed =  match data.date_completed {
+//             Some(date) => fmt_date(date),
+//             None => "N/A".to_string()
+//         };
+
+//         let added = fmt_date(data.date_added); 
+//         table.add_row(row![index, data.name, description, completed, added, date_completed]);
+//     }
+
+//     table.printstd();
+// }

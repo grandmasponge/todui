@@ -130,3 +130,17 @@ async fn main() {
         },
     }
 }
+
+
+pub fn read_line(prompt: String) -> Result<String, std::io::Error>{
+    let mut contents = String::new();
+
+    print!("{} >", prompt.bright_cyan().italic());
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut contents)?;
+
+    Ok(contents)
+}
+
+
+//i love you becca <3
