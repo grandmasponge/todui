@@ -1,5 +1,5 @@
 use std::io::SeekFrom;
-use crate::todos::Todo;
+use crate::todos::{Todo, TodoList};
 use prettytable::{format, row, Table};
 use tokio::fs::{File, OpenOptions};
 
@@ -8,58 +8,12 @@ use chrono::{DateTime, Datelike, Local};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 pub struct AppState {
-    pub todo_list: Vec<Todo>,
+    pub current_list: TodoList,
+    pub global_lists: Vec<TodoList>
 }
 
 impl AppState {
-    pub async fn read_todo_history(path: Option<PathBuf>) -> AppState {
-        let path = path.unwrap_or_else( || {
-            PathBuf::from("./recources/todo.json")
-        });
-
-        let file_result = File::open(&path)
-            .await;
-
-        let mut file = match file_result {
-            Ok(f) => f,
-            Err(_) => {
-                println!("guessing file was not found creating and opening a new file");
-                let mut options = OpenOptions::new()
-                    .create(true)
-                    .read(true)
-                    .write(true)
-                    .open(&path)
-                    .await
-                    .unwrap();
-
-                options.write(b"[]")
-                    .await
-                    .unwrap();
-
-                options
-            }
-        };
-
-        file.seek(std::io::SeekFrom::Start(0)).await.unwrap();
-
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)
-            .await
-            .unwrap();
-
-        let todo_list = serde_json::from_str(&contents)
-            .unwrap();
-
-        AppState { todo_list }
-    }
-
-    pub fn add(&mut self, todo: Todo) {
-        self.todo_list.push(todo);
-    }
-
-    pub fn remove(&mut self, index: usize) {
-       let _ =  &self.todo_list.remove(index -1);
-    }
+    
 
 
     pub fn list(&self) {
@@ -89,7 +43,7 @@ impl AppState {
             };
 
             let added = fmt_date(data.date_added); 
-            table.add_row(row![index + 1, data.name, description, completed, added, date_completed]);
+            table.add_row(row![index, data.name, description, completed, added, date_completed]);
         }
 
         table.printstd();

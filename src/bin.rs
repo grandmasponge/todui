@@ -6,7 +6,7 @@ use chrono::Local;
 use clap::{ command, value_parser, Arg, Command};
 use colored::Colorize;
 use std::{
-    io::{self, stdin, stdout, Write},
+    io::{self, stdin, stdout, Read, Write},
     sync::{Arc, Mutex},
 };
 use todos::Todo;
@@ -24,7 +24,12 @@ async fn main() {
     let state = Arc::new(Mutex::new(state::AppState::read_todo_history(None).await));
 
     let matches = command!()
-        .subcommand(Command::new("add").about("adds a item to the todo list"))
+        .subcommand(Command::new("add").args(
+            &[
+                Arg::new("name").short('n').long("name"),
+                Arg::new("description").short('d').long("desc")
+            ]
+        ).about("adds a item to the todo list"))
         .subcommand(Command::new("remove").args(&[
             Arg::new("item").short('i').long("item").value_parser(value_parser!(usize))
         ]).about("removes an item from the todo list"))
@@ -33,35 +38,25 @@ async fn main() {
         .get_matches();
 
     match matches.subcommand() {
-        Some(("add", _submatches)) => {
-            let mut name = String::new();
-            let mut description = String::new();
-            print!("{}[2J", 27 as char);
-            print!("{}", "Input the name of the todo > ".bright_cyan().italic());
-            io::stdout().flush().unwrap();
-            io::stdin().read_line(&mut name).unwrap();
-            print!("{}[2J", 27 as char);
-            print!(
-                "<{}> {}",
-                "Optional".bright_black(),
-                "input the description of the todo >".bright_cyan().italic()
-            );
-            io::stdout().flush().unwrap();
-            io::stdin().read_line(&mut description).unwrap();
-            print!("{}[2J", 27 as char);
-            //check if descripton is empty
-            let description = if !description.is_empty() {
-                Some(description)
-            } else {
-                None
+        Some(("add", submatches)) => {
+            let name = match submatches.get_one::<String>("name"){
+                Some(name) => name.clone(),
+                None => {
+                    let mut name = String::new();
+                    print!("{}", "Whats the name of the task? > ".bright_cyan().italic());
+                    stdout().flush().unwrap();
+                    io::stdin().read_line(&mut name).unwrap();
+                    name
+                }
             };
 
+            let description = submatches.get_one::<String>("description").cloned();
             let todo = Todo::new(name, description, false);
             let mut state_ref = state.lock().unwrap();
 
-            state_ref.todo_list.push(todo);
-            state_ref.list();
+            state_ref.add(todo);
             state_ref.write_to_file().await;
+            state_ref.list(); 
         }
         Some(("list", _submatches)) => {
             state.lock().unwrap().list();
