@@ -1,14 +1,16 @@
-use std::{fmt::Display, io::Write, path::PathBuf};
+use std::{fmt::Display, io::{stdin, Write}, path::PathBuf};
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Datelike, Local};
 use colored::Colorize;
+use prettytable::{format, row, Table};
 use serde::{Deserialize, Serialize};
-use tokio::{fs::{File, OpenOptions}, io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt}};
+use tokio::{fs::{File, OpenOptions}, io::{stdout, AsyncReadExt, AsyncSeekExt, AsyncWriteExt}};
 
 #[derive(Debug)]
 pub enum TodoErrors {
     TodoNotFound,
     TodoClosing,
+    TodoSeralizationError,
     OutOfBounds
 }
 
@@ -23,7 +25,7 @@ impl std::error::Error for TodoErrors {}
 type TodoResult<T> = Result<T, TodoErrors>;
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct TodoList {
     pub path: PathBuf,
@@ -45,7 +47,7 @@ impl TodoList {
             .write(true)
             .open(&path).await.unwrap();
 
-        file.write(b"[]").await.unwrap();
+
 
         TodoList {
             path,
@@ -60,43 +62,44 @@ impl TodoList {
     {
         let path = PathBuf::from(path.to_string());
 
-        let file = File::open(&path)
-        .await;
+        // Try opening the file asynchronously
+        let file = File::open(&path).await;
 
         let mut file = match file {
             Ok(file) => file,
-            Err(e) => {
-                let mut awns = String::new();
-            print!("{}", "Todo list not found or courrupted would you like to create a new Todo list at that location? > ".bright_cyan().italic());
-            std::io::stdout().flush().unwrap();
-            std::io::stdin().read_line(&mut awns).unwrap();
-            if awns.trim() == "yes" {
-                let name = &path
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string();
-            
-                return Ok(Self::create_new(name.to_owned(), Some(path)).await);
-            }
-            else{
-                println!("Closing...");
-                return Err(TodoErrors::TodoClosing)
-            }
+            Err(_) => {
+                // Handle file not found or corrupted error
+                let mut answer = String::new();
+               
+                
+                stdout().write_all(b"Todo list not found or corrupted. Would you like to create a new Todo list at that location? > ").await.unwrap();
+                stdout().flush().await.unwrap();
+    
+                stdin().read_line(&mut answer).unwrap();
+                if answer.trim() == "yes" {
+                    let name = path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("default_todo_list")
+                        .to_string();
+    
+                    return Ok(Self::create_new(name.to_owned(), Some(path)).await);
+                } else {
+                    println!("Closing...");
+                    return Err(TodoErrors::TodoClosing);
+                }
             }
         };
 
         file.seek(std::io::SeekFrom::Start(0)).await.unwrap();
+    
+
         let mut contents = String::new();
-        file.read_to_string(&mut contents)
-        .await
-        .unwrap();
+        file.read_to_string(&mut contents).await.unwrap();
 
         let list: TodoList = serde_json::from_str(&contents)
-        .unwrap();
-
-        Ok(list)
+        .map_err(|_| TodoErrors::TodoSeralizationError)?;
+    
+        Ok(list)   
 
     }
 
@@ -124,7 +127,9 @@ impl TodoList {
                 Some(todo) => todo,
                 None => return Err(TodoErrors::TodoNotFound)
             };
+            let time = Local::now();
             todo.completed = true;
+            todo.date_completed = Some(time);
 
             Ok(())
 
@@ -147,10 +152,42 @@ impl TodoList {
         Err(TodoErrors::TodoNotFound)
     }
 
+    pub fn list(&self) {
+
+        let fmt_date = |x: DateTime<Local>| {
+             format!("{}/{}/{}", x.day(), x.month(), x.year())
+        };
+        let mut table = Table::new();
+            table.set_titles(row!["id", "Name", "Description", "Date added", "Completed", "Date Completed"]);
+            table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+        for (index, todo) in self.list.iter().enumerate() {
+
+
+            let description = match &todo.description {
+                Some(desc) => desc,
+                None => "N/A"
+            };
+            let completed = if todo.completed {
+                "Yes"
+            } else {
+                "No"
+            };
+            let date_added = fmt_date(todo.date_added);
+            let date_completed = match &todo.date_completed {
+                Some(date) => fmt_date(date.clone()),
+                None => "N/A".to_string()
+            };
+
+            table.add_row(row![index, todo.name, description, date_added, completed, date_completed]);
+            
+        }
+        table.printstd();
+    }
+
 }
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct Todo {
     pub name: String,

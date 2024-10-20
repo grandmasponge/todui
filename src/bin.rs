@@ -5,6 +5,7 @@ mod todos;
 use chrono::Local;
 use clap::{ command, value_parser, Arg, Command};
 use colored::Colorize;
+use state::AppState;
 use std::{
     io::{self, stdin, stdout, Read, Write},
     sync::{Arc, Mutex},
@@ -21,7 +22,7 @@ const TITLE: &str = "\
 
 #[tokio::main]
 async fn main() {
-    let state = Arc::new(Mutex::new(state::AppState::read_todo_history(None).await));
+    let state = Arc::new(Mutex::new(AppState::init("./recources", None).await.unwrap()));
 
     let matches = command!()
         .subcommand(Command::new("add").args(
@@ -54,14 +55,14 @@ async fn main() {
             let todo = Todo::new(name, description, false);
             let mut state_ref = state.lock().unwrap();
 
-            state_ref.add(todo);
-            state_ref.write_to_file().await;
-            state_ref.list(); 
+            unreachable!() 
         }
         Some(("list", _submatches)) => {
-            state.lock().unwrap().list();
+            let state_ref = state.lock().unwrap().current_list.list();
+
         }
         Some(("complete", submatches)) => {
+            
             let index: usize = match submatches.get_one::<usize>("item") {
                 Some(index) => index.clone(),
                 None => {
@@ -69,7 +70,8 @@ async fn main() {
                     let mut name = String::new();
                     stdout().flush().unwrap();
                     stdin().read_line(&mut name).unwrap();
-                    state.lock().unwrap().find_todo(name)
+                    unreachable!()
+                   
                 }
             };
 
@@ -87,24 +89,6 @@ async fn main() {
                 }
             };
 
-            let mut state_ref = state.lock().unwrap();
-
-            if should_delete {
-                state_ref.remove(index);
-                state_ref.write_to_file().await;
-            }
-            else {
-                let item = &mut state_ref
-                .todo_list
-                .get_mut(index)
-                .unwrap();
-                item.completed = true;
-                item.date_completed = Some(Local::now());
-
-                state_ref.write_to_file().await;
-            }
-
-            state_ref.list();
             
         }
         Some(("remove", submatches)) => {
@@ -116,13 +100,10 @@ async fn main() {
                     io::stdout().flush().unwrap();
                     io::stdin().read_line(&mut name).unwrap();
 
-                    state.lock().unwrap().find_todo(name)
+                   unreachable!()
                 }
             };
-            let mut state_ref = state.lock().unwrap();
-            state_ref.remove(index);
-            state_ref.list();
-            state_ref.write_to_file().await;
+
 
         }
         _ => {
@@ -132,10 +113,10 @@ async fn main() {
 }
 
 
-pub fn read_line(prompt: String) -> Result<String, std::io::Error>{
+fn read_line(prompt: String) -> Result<String, std::io::Error>{
     let mut contents = String::new();
 
-    print!("{} >", prompt.bright_cyan().italic());
+    print!("{} > ", prompt.bright_cyan().italic());
     io::stdout().flush()?;
     io::stdin().read_line(&mut contents)?;
 
