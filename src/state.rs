@@ -65,8 +65,6 @@ impl AppState {
         let mut lists = Vec::new();
 
         while let Some(entry) = dir.next_entry().await.unwrap() {
-           
-                //for now we will skip the possibility of directorys 
 
                 let path = entry.path();
                 let extension =  match &path.extension() {

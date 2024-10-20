@@ -96,8 +96,17 @@ impl TodoList {
         let mut contents = String::new();
         file.read_to_string(&mut contents).await.unwrap();
 
-        let list: TodoList = serde_json::from_str(&contents)
-        .map_err(|_| TodoErrors::TodoSeralizationError)?;
+        let list: TodoList = match serde_json::from_str(&contents) {
+            Ok(list) => list,
+            Err(err) => {
+                println!("{err}\n Failed to parse list initalizing and empty one instead");
+                TodoList {
+                    path: PathBuf::from("./recources/default.json"),
+                    name: String::from("default"),
+                    list: Vec::new(),
+                }
+            }
+        };
     
         Ok(list)   
 
