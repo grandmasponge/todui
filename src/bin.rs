@@ -43,10 +43,7 @@ async fn main() {
             let name = match submatches.get_one::<String>("name"){
                 Some(name) => name.clone(),
                 None => {
-                    let mut name = String::new();
-                    print!("{}", "Whats the name of the task? > ".bright_cyan().italic());
-                    stdout().flush().unwrap();
-                    io::stdin().read_line(&mut name).unwrap();
+                   let name = read_line("whats the name of your task? ".to_string()).unwrap();
                     name
                 }
             };
@@ -54,8 +51,10 @@ async fn main() {
             let description = submatches.get_one::<String>("description").cloned();
             let todo = Todo::new(name, description, false);
             let mut state_ref = state.lock().unwrap();
+            state_ref.add_to_list(None, todo).await.unwrap();
+            state_ref.current_list.list();
 
-            unreachable!() 
+
         }
         Some(("list", _submatches)) => {
             let state_ref = state.lock().unwrap().current_list.list();
@@ -95,14 +94,13 @@ async fn main() {
             let index = match submatches.get_one::<usize>("item") {
                 Some(index) => index.clone() as usize,
                 None => {
-                    let mut name = String::new();
-                    print!("{}", "Whats the name of the todo to delete> ".bright_cyan());
-                    io::stdout().flush().unwrap();
-                    io::stdin().read_line(&mut name).unwrap();
-
-                   unreachable!()
+                    let name = read_line("what is the name of the task to remove? ").unwrap();
+                    let id  = state.lock().unwrap().current_list.find_todo_id(name).unwrap();
+                    id
                 }
             };
+
+            state.lock().unwrap().remove_from_list(index).await.unwrap()
 
 
         }
@@ -113,10 +111,12 @@ async fn main() {
 }
 
 
-fn read_line(prompt: String) -> Result<String, std::io::Error>{
+fn read_line<T>(prompt: T) -> Result<String, std::io::Error>
+where T: ToString
+{
     let mut contents = String::new();
 
-    print!("{} > ", prompt.bright_cyan().italic());
+    print!("{} > ", prompt.to_string().bright_cyan().italic());
     io::stdout().flush()?;
     io::stdin().read_line(&mut contents)?;
 

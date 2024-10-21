@@ -1,0 +1,20 @@
+{
+  "Path": "./recources/default.json",
+  "Name": "default",
+  "List": [
+    {
+      "Name": "stroke rhubarb\n",
+      "Description": null,
+      "DateAdded": "2024-10-21T09:00:03.092674+01:00",
+      "Completed": false,
+      "DateCompleted": null
+    },
+    {
+      "Name": "rhubarb 2\n",
+      "Description": null,
+      "DateAdded": "2024-10-21T09:10:50.535061+01:00",
+      "Completed": false,
+      "DateCompleted": null
+    }
+  ]
+}

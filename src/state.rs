@@ -126,12 +126,16 @@ impl AppState {
         Err(AppError::new(AppErrorKind::Error, "List does NOT exist"))
     }
 
-    pub fn add_to_list<T>(id: Option<usize>) -> AppStateResult<()> {
-        todo!()
+    pub async fn add_to_list(&mut self, id: Option<usize>, todo: Todo) -> AppStateResult<()> {
+        self.current_list.add(todo).await.unwrap();
+        Ok(())
     }
 
-    pub fn remove_from_list<T>(id: Option<usize>) -> AppStateResult<()> {
-        todo!()
+    pub async fn remove_from_list(&mut self, id: usize) -> AppStateResult<()> {
+        self.current_list.remove(id)
+            .await
+            .unwrap();
+        Ok(())
     }
 
     pub fn show_list(&self, index: Option<usize>) -> AppStateResult<()> {
